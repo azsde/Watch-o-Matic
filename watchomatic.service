@@ -1,0 +1,12 @@
+[Unit]
+Description=watchomatic
+Wants=sysinit.target
+After=sysinit.target
+
+[Service]
+#WorkingDirectory=/home/azsde
+ExecStart=/usr/bin/python3 /home/azsde/Watch-o-Matic/player.py -i <replace_path>
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
