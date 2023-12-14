@@ -44,41 +44,50 @@ class Player:
             self.play()
             pass
 
-
     # Define callback function for media player events
     def on_event(self, event):
         if event.type == vlc.EventType.MediaListPlayerStopped:
             print("Media player is stopped")
         elif event.type == vlc.EventType.MediaPlayerPlaying:
-            self.save_video_index(self.get_index_of_current_item())
+            index = self.get_index_of_current_item()
+            print(f"Starting video {index}")
+            self.save_video_index(index)
 
     def save_video_index(self, index):
         with open(Player.VIDEO_INDEX_FILE, "w") as file:
             file.write(str(index))
 
     def play(self):
+        print("Play")
         self.player.play()
 
     def next(self):
+        print("Next")
         self.player.next()
 
     def pause(self):
+        print("Pause")
         self.player.pause()
 
     def previous(self):
+        print("Previous")
         self.player.previous()
 
     def stop(self):
+        print("Stop")
         self.player.stop()
 
     def get_state(self):
+        print("get_state")
         return self.player.get_state()
 
     def get_index_of_current_item(self):
+        print("get_index_of_current_item")
         item = self.player.get_media_player().get_media()
         return self.mediaList.index_of_item(item)
 
     def toggle_play_pause(self):
+        print("toggle_play_pause")
         if (self.player.get_state() == vlc.State.Playing):
             self.pause()
         elif (self.player.get_state() == vlc.State.Paused):
@@ -103,10 +112,17 @@ class Player:
 
         if (new_state == '1'):
             self.screen_disabled = True
-            self.player.pause()
+            if (self.get_state() == vlc.State.Playing):
+                self.was_playing = True
+                print("Screen off - Pausing playback")
+                self.pause()
+            else:
+                self.was_playing = False
         elif (new_state == '0'):
             self.screen_disabled = False
-            self.player.play()
+            if (self.was_playing):
+                print("Screen on - Resuming playback")
+                self.play()
 
     def on_key_press(self, event):
         key = event.name
