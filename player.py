@@ -3,6 +3,7 @@ import argparse
 import vlc
 import os
 import keyboard
+import logging
 
 from time import sleep
 
@@ -10,12 +11,12 @@ class Player:
 
     VIDEO_INDEX_FILE = "video-index.txt"
 
-    def __init__(self):
+    def __init__(self, path):
+        logger.debug("Creating vlc instance")
         # Create VLC instance
         self.vlc_instance = vlc.Instance("--no-xlib")
         self.screen_disabled = False
 
-    def createPlaylist(self, path):
         mp4_files = []
         self.mediaList = self.vlc_instance.media_list_new()
         for root, _, files in os.walk(path):
@@ -36,64 +37,68 @@ class Player:
         self.player.set_playback_mode(vlc.PlaybackMode.loop)
 
     def play_last_played_video(self):
+        logger.debug("Play last video")
         try:
             with open(Player.VIDEO_INDEX_FILE, "r") as file:
                 index = int(file.read())
                 self.player.play_item_at_index(index)
         except FileNotFoundError:
+            logger.debug("Video index file not found, starting over.")
             self.play()
             pass
 
     # Define callback function for media player events
     def on_event(self, event):
         if event.type == vlc.EventType.MediaListPlayerStopped:
-            print("Media player is stopped")
+            logger.info("Media player is stopped")
         elif event.type == vlc.EventType.MediaPlayerPlaying:
             index = self.get_index_of_current_item()
-            print(f"Starting video {index}")
+            media = self.player.get_media_player().get_media()
+            logger.info(f"Starting video {index} - {media.get_mrl()}")
             self.save_video_index(index)
 
     def save_video_index(self, index):
+        logger.debug(f"Saving video index {index}")
         with open(Player.VIDEO_INDEX_FILE, "w") as file:
             file.write(str(index))
 
     def play(self):
-        print("Play")
+        logger.debug("Play")
         self.player.play()
 
     def next(self):
-        print("Next")
+        logger.debug("Next")
         self.player.next()
 
     def pause(self):
-        print("Pause")
+        logger.debug("Pause")
         self.player.pause()
 
     def previous(self):
-        print("Previous")
+        logger.debug("Previous")
         self.player.previous()
 
     def stop(self):
-        print("Stop")
+        logger.debug("Stop")
         self.player.stop()
 
     def get_state(self):
         return self.player.get_state()
 
     def get_index_of_current_item(self):
-        print("get_index_of_current_item")
+        logger.debug("get_index_of_current_item")
         item = self.player.get_media_player().get_media()
         return self.mediaList.index_of_item(item)
 
     def toggle_play_pause(self):
-        print("toggle_play_pause")
+        logger.debug("toggle_play_pause")
         if (self.player.get_state() == vlc.State.Playing):
             self.pause()
         elif (self.player.get_state() == vlc.State.Paused):
             self.play()
 
     def toggleScreen(self):
-        print("toggleScreen")
+        logger.debug("toggleScreen")
         backlight_file = '/sys/class/backlight/rpi_backlight/bl_power'
 
         # Read the current backlight state
@@ -107,20 +112,20 @@ class Player:
         with open(backlight_file, 'w') as file:
             file.write(new_state)
 
-        print(f"Backlight state toggled. New state: {new_state}")
+        logger.debug(f"Backlight state toggled. New state: {new_state}")
 
         if (new_state == '1'):
             self.screen_disabled = True
             if (self.get_state() == vlc.State.Playing):
                 self.was_playing = True
-                print("Screen off - Pausing playback")
+                logger.debug("Screen off - Pausing playback")
                 self.pause()
             else:
                 self.was_playing = False
         elif (new_state == '0'):
             self.screen_disabled = False
             if (self.was_playing):
-                print("Screen on - Resuming playback")
+                logger.debug("Screen on - Resuming playback")
                 self.play()
 
     def on_key_press(self, event):
@@ -136,12 +141,40 @@ class Player:
         elif key == '4':
             self.player.stop()
         else:
-            print("Key not supported : ", key)
+            logger.debug("Key not supported : ", key)
 
     def release(self):
         self.vlc_instance.release()
 
 if __name__ == '__main__':
+
+    # create logger
+    logger = logging.getLogger("watchomatic")
+    logger.setLevel(logging.DEBUG)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    logger.addHandler(ch)
+
+    # create console handler and set level to debug
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    fh = logging.FileHandler(r'logs.txt')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+    logger.info("======================")
+    logger.info("Starting Watch-o-Matic")
+    logger.info("======================")
 
     # Create the argument parser
     parser = argparse.ArgumentParser()
@@ -150,8 +183,7 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--input", help="Main folder containing the video files", required=True)
     args = parser.parse_args()
 
-    player = Player()
-    player.createPlaylist(args.input)
+    player = Player(args.input)
     player.play_last_played_video()
 
     # Hook keyboard key pressed
@@ -159,4 +191,6 @@ if __name__ == '__main__':
 
     while (player.get_state() != vlc.State.Stopped):
         sleep(0.5)
+
+    logger.info("Player is stopped, exiting")
     player.release()
