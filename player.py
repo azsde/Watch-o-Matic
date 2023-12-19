@@ -78,7 +78,6 @@ class Player:
         self.player.stop()
 
     def get_state(self):
-        print("get_state")
         return self.player.get_state()
 
     def get_index_of_current_item(self):
@@ -129,9 +128,9 @@ class Player:
         if key == '0' and not self.screen_disabled:
             self.toggle_play_pause()
         elif key == '1' and not self.screen_disabled:
-           self.next()
+           self.previous()
         elif key == '2' and not self.screen_disabled:
-            self.previous()
+            self.next()
         elif key == '3':
             self.toggleScreen()
         elif key == '4':
