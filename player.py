@@ -33,6 +33,7 @@ class Player:
         self.player.set_media_list(self.mediaList)
         self.player.event_manager().event_attach(vlc.EventType.MediaListPlayerStopped, self.on_event)
         self.player.get_media_player().event_manager().event_attach(vlc.EventType.MediaPlayerPlaying, self.on_event)
+        self.player.get_media_player().event_manager().event_attach(vlc.EventType.MediaPlayerEncounteredError, self.on_event)
         # Set the loop option for the media list player
         self.player.set_playback_mode(vlc.PlaybackMode.loop)
 
@@ -56,6 +57,8 @@ class Player:
             media = self.player.get_media_player().get_media()
             logger.info(f"Starting video {index} - {media.get_mrl()}")
             self.save_video_index(index)
+        elif event.type == vlc.EventType.MediaPlayerEncounteredError:
+            logger.e("Event MediaPlayerEncounteredError received")
 
     def save_video_index(self, index):
         logger.debug(f"Saving video index {index}")
@@ -189,8 +192,13 @@ if __name__ == '__main__':
     # Hook keyboard key pressed
     keyboard.on_press(player.on_key_press)
 
-    while (player.get_state() != vlc.State.Stopped):
+    while (True):
+        if (player.get_state() == vlc.State.Stopped):
+            logger.info("Player is stopped, exiting")
+            break
+        elif (player.get_state() == vlc.State.Error):
+            logger.e("Player is in error state ! We should do something to reset it, exiting for now ...")
+            break
         sleep(0.5)
 
-    logger.info("Player is stopped, exiting")
     player.release()
