@@ -4,8 +4,35 @@ import vlc
 import os
 import keyboard
 import logging
+import ctypes
 
 from time import sleep
+
+# VLC Logs Callback
+libc = ctypes.cdll.LoadLibrary(ctypes.util.find_library('c'))
+vsnprintf = libc.vsnprintf
+
+vsnprintf.restype = ctypes.c_int
+vsnprintf.argtypes = (
+    ctypes.c_char_p,
+    ctypes.c_size_t,
+    ctypes.c_char_p,
+    ctypes.c_void_p,
+)
+
+@vlc.CallbackDecorators.LogCb
+def log_callback(data, level, ctx, fmt, args):
+    # Skip if level is lower than warning
+    if level < 3:
+        return
+
+    # Format given fmt/args pair
+    BUF_LEN = 1024
+    outBuf = ctypes.create_string_buffer(BUF_LEN)
+    vsnprintf(outBuf, BUF_LEN, fmt, args)
+
+    # Print it out, or do something else
+    print('VLC LOG: ' + outBuf.raw.replace(b"\x00",b"").decode())
 
 class Player:
 
@@ -13,8 +40,13 @@ class Player:
 
     def __init__(self, path):
         logger.debug("Creating vlc instance")
+
         # Create VLC instance
         self.vlc_instance = vlc.Instance("--no-xlib")
+
+        # Redirect VLC logs to callback
+        self.vlc_instance.log_set(log_callback, None)
+
         self.screen_disabled = False
 
         mp4_files = []
