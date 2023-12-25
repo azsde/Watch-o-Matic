@@ -63,9 +63,10 @@ class Player:
 
         self.player = self.vlc_instance.media_list_player_new()
         self.player.set_media_list(self.mediaList)
+        self.backend_media_player = self.player.get_media_player()
         self.player.event_manager().event_attach(vlc.EventType.MediaListPlayerStopped, self.on_event)
-        self.player.get_media_player().event_manager().event_attach(vlc.EventType.MediaPlayerPlaying, self.on_event)
-        self.player.get_media_player().event_manager().event_attach(vlc.EventType.MediaPlayerEncounteredError, self.on_event)
+        self.backend_media_player.event_manager().event_attach(vlc.EventType.MediaPlayerPlaying, self.on_event)
+        self.backend_media_player.event_manager().event_attach(vlc.EventType.MediaPlayerEncounteredError, self.on_event)
         # Set the loop option for the media list player
         self.player.set_playback_mode(vlc.PlaybackMode.loop)
 
@@ -86,7 +87,7 @@ class Player:
             logger.info("Media player is stopped")
         elif event.type == vlc.EventType.MediaPlayerPlaying:
             index = self.get_index_of_current_item()
-            media = self.player.get_media_player().get_media()
+            media = self.backend_media_player.get_media()
             logger.info(f"Starting video {index} - {media.get_mrl()}")
             self.save_video_index(index)
         elif event.type == vlc.EventType.MediaPlayerEncounteredError:
@@ -122,7 +123,7 @@ class Player:
 
     def get_index_of_current_item(self):
         logger.debug("get_index_of_current_item")
-        item = self.player.get_media_player().get_media()
+        item = self.backend_media_player.get_media()
         return self.mediaList.index_of_item(item)
 
     def toggle_play_pause(self):
@@ -179,6 +180,7 @@ class Player:
             logger.debug("Key not supported : ", key)
 
     def release(self):
+        self.backend_media_player.release()
         self.vlc_instance.release()
 
 if __name__ == '__main__':
