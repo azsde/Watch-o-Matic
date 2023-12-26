@@ -5,6 +5,7 @@ import os
 import keyboard
 import logging
 import ctypes
+import RPi.GPIO as GPIO
 
 from time import sleep
 
@@ -19,6 +20,8 @@ vsnprintf.argtypes = (
     ctypes.c_char_p,
     ctypes.c_void_p,
 )
+
+screen_backlight_pin = 12 # Pin 12 is GPIO 18
 
 @vlc.CallbackDecorators.LogCb
 def log_callback(data, level, ctx, fmt, args):
@@ -135,22 +138,15 @@ class Player:
 
     def toggleScreen(self):
         logger.debug("toggleScreen")
-        backlight_file = '/sys/class/backlight/rpi_backlight/bl_power'
-
-        # Read the current backlight state
-        with open(backlight_file, 'r') as file:
-            current_state = file.read().strip()
+        current_state =  GPIO.input(screen_backlight_pin)
 
         # Toggle the backlight state
-        new_state = '0' if current_state == '1' else '1'
-
-        # Write the new backlight state
-        with open(backlight_file, 'w') as file:
-            file.write(new_state)
+        new_state = not current_state
+        GPIO.output(screen_backlight_pin, new_state)
 
         logger.debug(f"Backlight state toggled. New state: {new_state}")
 
-        if (new_state == '1'):
+        if (not new_state):
             self.screen_disabled = True
             if (self.get_state() == vlc.State.Playing):
                 self.was_playing = True
@@ -158,7 +154,7 @@ class Player:
                 self.pause()
             else:
                 self.was_playing = False
-        elif (new_state == '0'):
+        else:
             self.screen_disabled = False
             if (self.was_playing):
                 logger.debug("Screen on - Resuming playback")
@@ -215,6 +211,10 @@ if __name__ == '__main__':
 
     # Create the argument parser
     parser = argparse.ArgumentParser()
+
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(screen_backlight_pin, GPIO.OUT)
+
 
     # Define the arguments
     parser.add_argument("-i", "--input", help="Main folder containing the video files", required=True)
