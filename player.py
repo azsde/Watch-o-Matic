@@ -6,6 +6,7 @@ import keyboard
 import logging
 import ctypes
 import RPi.GPIO as GPIO
+import sys
 
 from time import sleep
 
@@ -21,21 +22,45 @@ vsnprintf.argtypes = (
     ctypes.c_void_p,
 )
 
-screen_backlight_pin = 12 # Pin 12 is GPIO 18
+previous_log = None
+
+vlc_critical_error_encoutered = False
 
 @vlc.CallbackDecorators.LogCb
 def log_callback(data, level, ctx, fmt, args):
-    # Skip if level is lower than warning
-    if level < 3:
-        return
+    global previous_log
 
     # Format given fmt/args pair
     BUF_LEN = 1024
     outBuf = ctypes.create_string_buffer(BUF_LEN)
     vsnprintf(outBuf, BUF_LEN, fmt, args)
 
-    # Print it out, or do something else
-    print('VLC LOG: ' + outBuf.raw.replace(b"\x00",b"").decode())
+    log = outBuf.raw.replace(b"\x00",b"").decode()
+
+    # Avoid spamming, no need to have multiple similar logs lines
+    if (log != previous_log):
+        log = "[VLC] - " + log
+        # Uncomment if you need VLC's debug logs
+        #if (level == vlc.LogLevel.DEBUG):
+        #    logger.debug(log)
+        if (level == vlc.LogLevel.ERROR):
+            logger.error(log)
+        if (level == vlc.LogLevel.NOTICE):
+            logger.info(log)
+        if (level == vlc.LogLevel.WARNING):
+            logger.warning(log)
+        detectVlcCriticalErrors(log)
+    previous_log = log
+
+def detectVlcCriticalErrors(log):
+    global vlc_critical_error_encoutered
+    if ("main decoder error: failed to create video output" in log):
+        vlc_critical_error_encoutered = True
+    elif ("cannot start codec" in log):
+        vlc_critical_error_encoutered = True
+
+# GPIO pin to control waveshare 2.8 DPI backlight (Pin 12 is GPIO 18)
+screen_backlight_pin = 12
 
 class Player:
 
@@ -226,7 +251,7 @@ if __name__ == '__main__':
     # Hook keyboard key pressed
     keyboard.on_press(player.on_key_press)
 
-    while (True):
+    while (not vlc_critical_error_encoutered):
         if (player.get_state() == vlc.State.Stopped):
             logger.info("Player is stopped, exiting")
             break
